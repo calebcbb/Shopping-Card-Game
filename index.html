@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Capacitive Card Tester</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #121212;
+            font-family: sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #testCanvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 2;
+            pointer-events: none; /* Allows touches to pass through to canvas logic */
+        }
+
+        #data-box {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            color: #00ffcc;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 14px;
+            max-width: 300px;
+            border: 1px solid #00ffcc;
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.3);
+        }
+
+        #clear-btn {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ff3366;
+            color: white;
+            border: none;
+            padding: 15px 35px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            pointer-events: auto; /* Ensures the button can be tapped */
+            box-shadow: 0 4px 15px rgba(255, 51, 102, 0.4);
+        }
+
+        #clear-btn:active {
+            background: #cc0033;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="testCanvas"></canvas>
+    
+    <div id="ui-layer">
+        <div id="data-box">
+            <div style="font-weight: bold; margin-bottom: 5px; color: #fff;">Distance Calculations:</div>
+            <div id="distances">Place card to calculate...</div>
+        </div>
+        <button id="clear-btn">Clear Canvas</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('testCanvas');
+        const ctx = canvas.getContext('2d');
+        const distancesDiv = document.getElementById('distances');
+        const clearBtn = document.getElementById('clear-btn');
+
+        // Resize canvas to fill the screen
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            clearCanvas();
+        }
+
+        function clearCanvas() {
+            ctx.fillStyle = '#121212';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            distancesDiv.innerHTML = "Canvas cleared. Place card...";
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        clearBtn.addEventListener('click', clearCanvas);
+
+        // Initialize canvas sizing
+        resizeCanvas();
+
+        // Main touch event tracking
+        canvas.addEventListener('touchstart', (e) => {
+            // Prevent default zooming/scrolling behavior
+            e.preventDefault(); 
+            
+            const touches = e.touches;
+            const currentPoints = [];
+
+            // 1. Draw a massive circle for every active contact point
+            for (let i = 0; i < touches.length; i++) {
+                const x = touches[i].clientX;
+                const y = touches[i].clientY;
+                currentPoints.push({ x, y });
+
+                // Random color for each finger point in this specific touch instance
+                const hue = (i * 60) % 360;
+                ctx.fillStyle = `hsla(${hue}, 80%, 60%, 0.7)`;
+                ctx.strokeStyle = `hsla(${hue}, 80%, 60%, 1)`;
+                ctx.lineWidth = 3;
+
+                // Draw a 40px radius circle centered on the touch point
+                ctx.beginPath();
+                ctx.arc(x, y, 40, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Draw center coordinate text next to the circle
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '14px Arial';
+                ctx.fillText(`P${i+1} (${Math.round(x)}, ${Math.round(y)})`, x + 45, y + 5);
+            }
+
+            // 2. Calculate distances between points if there are 2 or more touches
+            if (currentPoints.length >= 2) {
+                let outputHTML = "";
+                let count = 1;
+
+                for (let i = 0; i < currentPoints.length; i++) {
+                    for (let j = i + 1; j < currentPoints.length; j++) {
+                        const p1 = currentPoints[i];
+                        const p2 = currentPoints[j];
+                        
+                        // Distance formula: d = sqrt((x2-x1)^2 + (y2-y1)^2)
+                        const dx = p2.x - p1.x;
+                        const dy = p2.y - p1.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+
+                        outputHTML += `P${i+1} to P${j+1}: <b>${Math.round(distance)} px</b><br>`;
+                        
+                        // Optional: Draw a thin line connecting the computed pairs on screen
+                        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(p1.x, p1.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        ctx.stroke();
+                    }
+                }
+                distancesDiv.innerHTML = outputHTML;
+            } else if (currentPoints.length === 1) {
+                distancesDiv.innerHTML = "Only 1 point detected.<br>Need >= 2 for distance.";
+            }
+        }, { passive: false });
+
+    </script>
+</body>
+</html>
